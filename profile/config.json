@@ -1,0 +1,25 @@
+{
+  "login": "cinexul",
+  "alias_cjk": "哭泣de御姐控",
+  "tagline_cjk": "暗室里还亮着一台机器",
+  "site": "https://cinexul.com",
+  "feed": "https://cinexul.com/feed.xml",
+  "est_fallback": "2026",
+  "nav": [
+    { "id": "site",   "cjk": "主站", "en": "SITE",   "href": "https://cinexul.com" },
+    { "id": "photo",  "cjk": "摄影", "en": "PHOTO",  "href": "https://cinexul.com/photography" },
+    { "id": "essays", "cjk": "随笔", "en": "ESSAYS", "href": "https://cinexul.com/essays" },
+    { "id": "news",   "cjk": "快讯", "en": "NEWS",   "href": "https://cinexul.com/news" },
+    { "id": "feed",   "cjk": "订阅", "en": "RSS",    "href": "https://cinexul.com/feed.xml" },
+    { "id": "how",    "cjk": "拆解", "en": "HOW",    "href": "docs/%E6%8A%80%E6%9C%AF%E6%89%8B%E5%86%8C.md" }
+  ],
+  "reel_fallback": [
+    { "title": "摄影 · 胶片图集",   "tag": "PHOTOGRAPHY", "date": "CINEXUL.COM" },
+    { "title": "随笔 · 縦書き卷轴", "tag": "ESSAYS",      "date": "CINEXUL.COM" },
+    { "title": "洞见 · 阅读模式",   "tag": "INSIGHTS",    "date": "CINEXUL.COM" },
+    { "title": "碎碎念 · 深夜电波", "tag": "MOMENTS",     "date": "CINEXUL.COM" },
+    { "title": "快讯 · 深夜电讯社", "tag": "NEWS",        "date": "CINEXUL.COM" },
+    { "title": "编程 · 控制台",     "tag": "CODE",        "date": "CINEXUL.COM" }
+  ],
+  "include_private_repos_in_text": false
+}

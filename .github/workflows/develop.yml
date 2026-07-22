@@ -1,0 +1,50 @@
+# 自动显影:每 6 小时抓一次公开数据,重渲染 assets/ 下的 SVG 并提交。
+# 防循环:bot 提交只改 assets/** 与 profile/live.json,而 push 触发排除了这两处;
+# 再加 actor 守卫双保险。
+name: develop
+
+on:
+  schedule:
+    - cron: '23 1,7,13,19 * * *'   # 每 6 小时,避开整点高峰
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'profile/**'
+      - '!profile/live.json'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: develop
+  cancel-in-progress: true
+
+jobs:
+  develop:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 抓取信号
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 profile/fetch.py
+
+      - name: 冲洗胶片
+        run: python3 profile/render.py
+
+      - name: 提交显影结果
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets profile/live.json
+          if git diff --cached --quiet; then
+            echo '暗房无新信号,不提交。'
+            exit 0
+          fi
+          NO=$(python3 -c "import json; print(json.load(open('profile/live.json'))['develop_no'])")
+          TS=$(python3 -c "import json; print(json.load(open('profile/live.json'))['develop_ts'])")
+          git commit -m "🎞 自动显影 №${NO} · ${TS}"
+          git push
