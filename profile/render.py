@@ -206,7 +206,7 @@ def gen_hero(cfg: dict, live: dict) -> str:
         '<stop offset="0" stop-color="rgba(2,6,13,0.60)"/>'
         '<stop offset="0.55" stop-color="rgba(8,17,30,0.34)"/>'
         '<stop offset="0.85" stop-color="rgba(150,182,208,0.08)"/>'
-        '<stop offset="1" stop-color="rgba(198,222,242,0.17)"/></radialGradient>',
+        '<stop offset="1" stop-color="rgba(198,222,242,0.30)"/></radialGradient>',
         '<radialGradient id="dstreet" cx="0.5" cy="0.5" r="0.5">'
         f'<stop offset="0" stop-color="{LAMP}" stop-opacity="0.55"/>'
         f'<stop offset="0.6" stop-color="{LAMP}" stop-opacity="0.16"/>'
@@ -318,20 +318,33 @@ def gen_hero(cfg: dict, live: dict) -> str:
 
     css.append("@keyframes dfade{0%,3%{opacity:0}9%,80%{opacity:1}95%,100%{opacity:0}}")
     drops = ['<g clip-path="url(#glass)">']
-    for i in range(8):
-        x = 60 + rng() * 880
-        y = 30 + rng() * 140
-        s = 0.52 + rng() * 0.55
-        dur = 11 + rng() * 8
-        # 蠕动式滑落:关键帧带横向游移与体积缩小
-        sgn = 1 if rng() < 0.5 else -1
-        kp = [(0, 0, 0, 1), (8 + rng() * 5, sgn * 0.6, 2.5, 1),
-              (24 + rng() * 6, -sgn * 0.9, 8, 0.99), (40 + rng() * 5, sgn * 1.7, 58 + rng() * 26, 0.97),
-              (54 + rng() * 5, sgn * 1.2, 66 + rng() * 26, 0.96),
-              (76 + rng() * 5, -sgn * 1.5, 185 + rng() * 55, 0.90), (100, sgn * 0.8, 335, 0.85)]
-        frames = "".join(f"{fnum(p)}%{{transform:translate({fnum(dx)}px,{fnum(dy)}px) scale({fnum(sc)})}}"
-                         for p, dx, dy, sc in kp)
-        css.append(f"@keyframes slip{i}{{{frames}}}")
+    for i in range(11):
+        x = 50 + rng() * 900
+        y = 28 + rng() * 150
+        s = 0.34 + rng() * 0.30          # 小珠:半径约 3.4~6.4px
+        dur = 12 + rng() * 9
+        # 写实轨迹(程序生成):黏住(久)→ 挣脱前微微下探 → 突然加速滑一段
+        # → 再黏住;每次挣脱带横向游移,每滑一段失一点体积。
+        # 关键帧内嵌 timing-function:挣脱段先加速后收,黏滞段几乎不动。
+        kp = ["0%{transform:translate(0px,0px) scale(1)}"]
+        p, ycur, xcur, sc = 0.0, 0.0, 0.0, 1.0
+        while True:
+            pause = 9 + rng() * 14
+            if p + pause > 84 or ycur > 250:
+                break
+            p += pause
+            kp.append(f"{fnum(p)}%{{transform:translate({fnum(xcur + (rng() - 0.5) * 0.9)}px,"
+                      f"{fnum(ycur + 1.2 + rng() * 2.2)}px) scale({fnum(sc)});"
+                      "animation-timing-function:cubic-bezier(0.6,0,0.8,0.35)}")
+            p += 2.2 + rng() * 2.6
+            ycur += 40 + rng() * 90
+            xcur += (rng() - 0.5) * 6.0
+            sc *= 0.93
+            kp.append(f"{fnum(p)}%{{transform:translate({fnum(xcur)}px,{fnum(ycur)}px) "
+                      f"scale({fnum(sc)});animation-timing-function:cubic-bezier(0.2,0.55,0.35,1)}}")
+        kp.append(f"100%{{transform:translate({fnum(xcur + (rng() - 0.5) * 2)}px,"
+                  f"{fnum(ycur + 46)}px) scale({fnum(sc * 0.95)})}}")
+        css.append(f"@keyframes slip{i}{{{''.join(kp)}}}")
         d, arc, _ = blob(10, rng() * 6.28)
         defs.append(f'<clipPath id="dc{i}"><path d="{d}"/></clipPath>')
         street = 0.22 + 0.42 * (y / H)                 # 越低越接近街灯,映光越亮
@@ -339,17 +352,17 @@ def gen_hero(cfg: dict, live: dict) -> str:
             f'<g style="animation:slip{i} {fnum(dur)}s {EASE} {fnum(-rng() * dur)}s infinite,'
             f'dfade {fnum(dur)}s linear {fnum(-rng() * dur)}s infinite" opacity="0">'
             f'<g transform="translate({fnum(x)},{fnum(y)}) scale({fnum(s)})">'
-            # 湿痕与残珠(拖在上方)
-            '<path d="M-1.1,-8 L-0.75,-27 Q0,-29.5 0.75,-27 L1.1,-8 Z" fill="url(#dwet)"/>'
-            f'<circle cx="{fnum((rng() - 0.5) * 2)}" cy="-15" r="0.95" fill="rgba(190,215,235,0.10)"/>'
-            f'<circle cx="{fnum((rng() - 0.5) * 2.4)}" cy="-22" r="0.8" fill="rgba(190,215,235,0.08)"/>'
+            # 湿痕与残珠(拖在上方,窄而淡)
+            '<path d="M-0.8,-8 L-0.5,-24 Q0,-26 0.5,-24 L0.8,-8 Z" fill="url(#dwet)"/>'
+            f'<circle cx="{fnum((rng() - 0.5) * 1.6)}" cy="-14" r="0.7" fill="rgba(190,215,235,0.10)"/>'
+            f'<circle cx="{fnum((rng() - 0.5) * 2)}" cy="-20" r="0.55" fill="rgba(190,215,235,0.08)"/>'
             # 珠体:暗芯透镜 + 街灯月牙 + 底缘薄亮 + 高光
             f'<path d="{d}" fill="url(#dcore)" stroke="rgba(233,238,244,0.10)" stroke-width="0.6"/>'
             f'<ellipse cx="0" cy="6.4" rx="7.0" ry="4.6" fill="url(#dstreet)" '
             f'opacity="{fnum(street)}" clip-path="url(#dc{i})"/>'
-            f'<path d="{arc}" fill="none" stroke="rgba(212,233,248,0.30)" stroke-width="1.05" '
+            f'<path d="{arc}" fill="none" stroke="rgba(220,238,250,0.44)" stroke-width="1.1" '
             'stroke-linecap="round"/>'
-            '<ellipse cx="-2.7" cy="-3.6" rx="2.0" ry="1.25" fill="rgba(255,255,255,0.50)" '
+            '<ellipse cx="-2.7" cy="-3.6" rx="2.0" ry="1.25" fill="rgba(255,255,255,0.62)" '
             'transform="rotate(-24 -2.7 -3.6)"/>'
             '<circle cx="-1.15" cy="-4.9" r="0.5" fill="rgba(255,255,255,0.72)"/>'
             "</g></g>")
@@ -366,10 +379,10 @@ def gen_hero(cfg: dict, live: dict) -> str:
                      f'{fnum(-rng() * 5)}s infinite"') if rng() < 0.35 else ""
             if tall:
                 drops.append(f'<ellipse cx="{fnum(x2)}" cy="{fnum(y2)}" rx="{fnum(r * 0.72)}" '
-                             f'ry="{fnum(r * 1.35)}" fill="#cfe0ea" opacity="0.085"{extra}/>')
+                             f'ry="{fnum(r * 1.35)}" fill="#cfe0ea" opacity="0.115"{extra}/>')
             else:
                 drops.append(f'<circle cx="{fnum(x2)}" cy="{fnum(y2)}" r="{fnum(r)}" '
-                             f'fill="#cfe0ea" opacity="0.09"{extra}/>')
+                             f'fill="#cfe0ea" opacity="0.12"{extra}/>')
             if r > 1.7:
                 drops.append(f'<circle cx="{fnum(x2 - r * 0.3)}" cy="{fnum(y2 - r * 0.4)}" r="0.4" '
                              'fill="rgba(255,255,255,0.30)"/>')
@@ -462,7 +475,7 @@ def gen_strings(live: dict) -> str:
 
     # 表头
     body.append(text_el(40, 46, 14.5, TEXT, "以光为弦", ls="0.3em", ff=SERIF))
-    body.append(text_el(158, 46, 8.5, FAINT, "TOP LANGUAGES — EVERY PHOTO IS A CHORD", ls="0.3em"))
+    body.append(text_el(158, 46, 8.5, FAINT, "TOP LANGUAGES — EVERY LANGUAGE, A STRING OF LIGHT", ls="0.3em"))
     body.append(text_el(W - 40, 46, 8.5, FAINT, esc("每 6 小时自动重新调音 · RETUNED BY ACTIONS"),
                         ls="0.22em", anchor="end"))
     body.append(f'<line x1="40" y1="60" x2="{W-40}" y2="60" stroke="{LINE_SOFT}"/>')

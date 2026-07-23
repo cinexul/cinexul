@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN">
 <meta charset="utf-8">
-<title>展品 №001 · 鲁班锁</title>
+<title>展品 №001 · 纸鹤</title>
 <style>
 	html,body{margin:0;background:#04060b;overflow:hidden}
 	canvas{display:block;width:1000px;height:440px}
@@ -11,11 +11,10 @@
 <script>
 'use strict';
 /*
- * 展品 №001 · 鲁班锁 —— 手写 WebGL,零依赖。
- * 几何:六根 2×2×6 木条按经典六轴互锁排布,开槽由体素优先级减法推导
- * (Z 对为完整钥匙件,Y 对单槽,X 对双槽),六件恰好无重叠地拼满实体。
- * 动画:整体缓慢翻转;周期性沿各自长轴无声散开(博物馆爆炸图式解构)、
- * 悬停、再合拢。所有量都是 t 的周期函数,首尾帧严格相接。
+ * 展品 №001 · 纸鹤 —— 手写 WebGL,零依赖。
+ * 一只低多边形折纸鹤停在夜水上方:纸面两面受光、背光微透,
+ * 翅膀按呼吸的节奏轻扇;水面拖着街灯倒影,雨点偶尔漾开涟漪,
+ * 倒影随水纹轻晃。所有量都是 t 的周期函数,首尾帧严格相接。
  * 由 record.py 逐帧驱动:window.seek(frame) 渲染第 frame 帧。
  */
 
@@ -26,308 +25,308 @@ const gl = cv.getContext('webgl', {antialias: true, preserveDrawingBuffer: true}
 function mulberry32(seed){let a=seed>>>0;return()=>{a|=0;a=(a+0x6d2b79f5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296}}
 const R = mulberry32(20260707);
 
-/* ── mat4(列主序) ── */
+/* ── mat4(列主序)与向量 ── */
 const M4 = {
-	ident:()=>[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],
 	mul(a,b){const o=new Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+r]*b[c*4+k];o[c*4+r]=s}return o},
 	persp(fov,ar,n,f){const t=1/Math.tan(fov/2),d=1/(n-f);return[t/ar,0,0,0, 0,t,0,0, 0,0,(n+f)*d,-1, 0,0,2*n*f*d,0]},
 	trans:(x,y,z)=>[1,0,0,0, 0,1,0,0, 0,0,1,0, x,y,z,1],
+	scale:(x,y,z)=>[x,0,0,0, 0,y,0,0, 0,0,z,0, 0,0,0,1],
 	rotX(a){const c=Math.cos(a),s=Math.sin(a);return[1,0,0,0, 0,c,s,0, 0,-s,c,0, 0,0,0,1]},
 	rotY(a){const c=Math.cos(a),s=Math.sin(a);return[c,0,-s,0, 0,1,0,0, s,0,c,0, 0,0,0,1]},
-	rotZ(a){const c=Math.cos(a),s=Math.sin(a);return[c,s,0,0, -s,c,0,0, 0,0,1,0, 0,0,0,1]},
+};
+const vsub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const vcross=(a,b)=>[a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+const vnorm=a=>{const l=Math.hypot(...a)||1;return[a[0]/l,a[1]/l,a[2]/l]};
+// 绕过点 p、方向 d 的轴旋转
+function rotAround(pt, p, d, ang){
+	const c=Math.cos(ang), s=Math.sin(ang), t=1-c, [x,y,z]=d;
+	const px=pt[0]-p[0], py=pt[1]-p[1], pz=pt[2]-p[2];
+	return [
+		p[0] + px*(c+x*x*t) + py*(x*y*t-z*s) + pz*(x*z*t+y*s),
+		p[1] + px*(y*x*t+z*s) + py*(c+y*y*t) + pz*(y*z*t-x*s),
+		p[2] + px*(z*x*t-y*s) + py*(z*y*t+x*s) + pz*(c+z*z*t),
+	];
+}
+
+/* ── 纸鹤几何(折痕即面,薄面两面受光) ── */
+// 身:细长菱锥;颈/喙/尾:z=0 平面里的薄鳍;翼:内外两片带折线。
+const BODY = (()=>{
+	const N=[0.88,0.20,0], Tt=[-0.85,0.22,0], U=[0.05,0.48,0], D=[0.02,-0.30,0],
+	      L=[0.02,0.08,0.22], Rr=[0.02,0.08,-0.22];
+	return [[N,U,L],[N,Rr,U],[U,Tt,L],[U,Rr,Tt],[N,L,D],[N,D,Rr],[Tt,D,L],[Tt,Rr,D]];
+})();
+// 颈与尾:陡峭上扬的薄鳍(z=0 平面),头部一折向前
+const NECK = [[[0.84,0.28,0],[0.96,0.10,0],[1.62,1.06,0]],
+              [[0.84,0.28,0],[1.62,1.06,0],[1.52,1.16,0]]];
+const BEAK = [[[1.52,1.16,0],[1.62,1.06,0],[2.02,0.92,0]]];
+const TAIL = [[[-0.80,0.32,0],[-0.92,0.13,0],[-1.66,1.14,0]],
+              [[-0.80,0.32,0],[-1.66,1.14,0],[-1.54,1.24,0]]];
+// 翼(右翼 z>0,左翼镜像):root 边 → 折线 mid 边 → 翼尖
+const WING = {
+	r1:[0.45,0.42,0.08], r2:[-0.40,0.42,0.08],
+	m1:[0.28,0.42,0.60], m2:[-0.46,0.42,0.60],
+	tip:[-0.55,0.42,1.55],
 };
 
-/* ── 体素推导六件套 ── */
-const key = (x,y,z)=>`${x},${y},${z}`;
-function barVoxels(axis, u0, v0){
-	// axis: 长轴;u0/v0:另两轴的 2 格起点。返回 24 个体素坐标。
-	const out = [];
-	for(let l=0;l<6;l++)for(let a=0;a<2;a++)for(let b=0;b<2;b++){
-		if(axis==='x') out.push([l, u0+a, v0+b]);
-		if(axis==='y') out.push([u0+a, l, v0+b]);
-		if(axis==='z') out.push([u0+a, v0+b, l]);
+function craneTris(u){
+	// 翼的扇动:内片绕 root 边、外片再绕折线;呼吸节奏,一循环两拍
+	const flap  = 0.17 + 0.12*Math.sin(u*Math.PI*4 + 1.5708);            // 内片二面角
+	const flap2 = 0.19 + 0.13*Math.sin(u*Math.PI*4 + 0.8708);      // 外片滞后
+	const tris = [...BODY, ...NECK, ...BEAK, ...TAIL];
+	for(const sgn of [1,-1]){
+		const mir = p=>[p[0], p[1], p[2]*sgn];
+		const r1=mir(WING.r1), r2=mir(WING.r2);
+		const axis1 = vnorm(vsub(r2,r1));           // 右翼绕根边抬起为负角,左翼镜像后取反
+		const lift1 = p=>rotAround(p, r1, axis1, (sgn>0?1:-1)*flap);
+		const m1=lift1(mir(WING.m1)), m2=lift1(mir(WING.m2));
+		const axis2 = vnorm(vsub(m2,m1));
+		const tip = rotAround(lift1(mir(WING.tip)), m1, axis2, (sgn>0?1:-1)*flap2);
+		tris.push([r1,r2,m2],[r1,m2,m1],[m1,m2,tip]);
 	}
-	return out;
-}
-// 排布:互锁于中心 2×4×4 区域;优先级 = 声明顺序(先到先得,后来者被开槽)
-const PIECES_DEF = [
-	{id:'Z1', axis:'z', vox: barVoxels('z', 2, 1)},   // x∈[2,4) y∈[1,3) —— 钥匙件,完整
-	{id:'Z2', axis:'z', vox: barVoxels('z', 2, 3)},   // x∈[2,4) y∈[3,5)
-	{id:'Y1', axis:'y', vox: barVoxels('y', 1, 2)},   // x∈[1,3) z∈[2,4) —— 单槽
-	{id:'Y2', axis:'y', vox: barVoxels('y', 3, 2)},   // x∈[3,5) z∈[2,4)
-	{id:'X1', axis:'x', vox: barVoxels('x', 2, 1)},   // y∈[2,4) z∈[1,3) —— 双槽
-	{id:'X2', axis:'x', vox: barVoxels('x', 2, 3)},   // y∈[2,4) z∈[3,5)
-];
-const claimed = new Set();
-const pieces = PIECES_DEF.map(p=>{
-	const mine = p.vox.filter(v=>!claimed.has(key(...v)));
-	mine.forEach(v=>claimed.add(key(...v)));
-	return {...p, vox: mine};
-});
-// 校验:六件合计恰好铺满全部去重体素(工艺自尊心)
-console.assert(pieces.reduce((s,p)=>s+p.vox.length,0) === claimed.size, 'voxel overlap!');
-
-/* 贪心合并体素 → 长方体列表 */
-function greedy(vox){
-	const set = new Set(vox.map(v=>key(...v))), used = new Set(), boxes = [];
-	const sorted = [...vox].sort((a,b)=>a[2]-b[2]||a[1]-b[1]||a[0]-b[0]);
-	for(const v of sorted){
-		if(used.has(key(...v))) continue;
-		let [x,y,z] = v, dx=1, dy=1, dz=1;
-		while(set.has(key(x+dx,y,z)) && !used.has(key(x+dx,y,z))) dx++;
-		const rowOk = (yy,zz)=>{for(let i=0;i<dx;i++){const k=key(x+i,yy,zz);if(!set.has(k)||used.has(k))return false}return true};
-		while(rowOk(y+dy,z)) dy++;
-		const layerOk = zz=>{for(let j=0;j<dy;j++)if(!rowOk(y+j,zz))return false;return true};
-		while(layerOk(z+dz)) dz++;
-		for(let i=0;i<dx;i++)for(let j=0;j<dy;j++)for(let k2=0;k2<dz;k2++)used.add(key(x+i,y+j,z+k2));
-		boxes.push([x,y,z,dx,dy,dz]);
-	}
-	return boxes;
+	return tris;
 }
 
-/* 长方体 → 三角形(位置/法线/纹理坐标=件内木纹坐标) */
-const FACES = [
-	{n:[1,0,0],  c:[[1,0,0],[1,1,0],[1,1,1],[1,0,1]]},
-	{n:[-1,0,0], c:[[0,0,1],[0,1,1],[0,1,0],[0,0,0]]},
-	{n:[0,1,0],  c:[[0,1,0],[0,1,1],[1,1,1],[1,1,0]]},
-	{n:[0,-1,0], c:[[0,0,0],[1,0,0],[1,0,1],[0,0,1]]},
-	{n:[0,0,1],  c:[[1,0,1],[1,1,1],[0,1,1],[0,0,1]]},
-	{n:[0,0,-1], c:[[0,0,0],[0,1,0],[1,1,0],[1,0,0]]},
-];
-function buildPiece(p){
-	const pos=[], nor=[], grain=[];
-	const axisIdx = {x:0,y:1,z:2}[p.axis];
-	for(const [bx,by,bz,dx,dy,dz] of greedy(p.vox)){
-		for(const f of FACES){
-			const base = pos.length/3;
-			for(const c of f.c){
-				const vx=bx+c[0]*dx, vy=by+c[1]*dy, vz=bz+c[2]*dz;
-				pos.push(vx-3, vy-3, vz-3);          // 居中
-				nor.push(...f.n);
-				const local=[vx,vy,vz];
-				grain.push(local[axisIdx], local[(axisIdx+1)%3], local[(axisIdx+2)%3]);
-			}
-		}
-	}
-	// 每 4 顶点一面 → 两个三角形
-	const idx=[];
-	for(let i=0;i<pos.length/3;i+=4) idx.push(i,i+1,i+2, i,i+2,i+3);
-	return {pos:new Float32Array(pos), nor:new Float32Array(nor),
-	        grain:new Float32Array(grain), idx:new Uint16Array(idx)};
-}
-const AXIS_V = {x:[1,0,0], y:[0,1,0], z:[0,0,1]};
-const meshes = pieces.map((p,i)=>({
-	geo: buildPiece(p),
-	dir: AXIS_V[p.axis].map(v=>v*(i%2===0?-1:1)),   // 成对反向散开
-	hue: 0.9 + (R()-0.5)*0.16,                        // 每根木条色相微差
-}));
-
-/* ── shader ── */
+/* ── shader 基建 ── */
 function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
 	if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(s);return s}
 function prog(vs,fs){const p=gl.createProgram();gl.attachShader(p,sh(gl.VERTEX_SHADER,vs));
 	gl.attachShader(p,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(p);
 	if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw gl.getProgramInfoLog(p);return p}
+const NOISE_GLSL = `
+	float hash(vec2 p){return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);}
+	float noise(vec2 p){
+		vec2 i = floor(p), f = fract(p);
+		vec2 u2 = f * f * (3.0 - 2.0 * f);
+		return mix(mix(hash(i), hash(i+vec2(1,0)), u2.x),
+		           mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), u2.x), u2.y);
+	}`;
 
-const WOOD = prog(`
-	attribute vec3 aPos, aNor, aGrain;
+/* 纸面(鹤本体与倒影共用) */
+const PAPER = prog(`
+	attribute vec3 aPos, aNor;
 	uniform mat4 uProj, uView, uModel;
-	uniform vec3 uOffset;
-	varying vec3 vNor, vGrain, vLocal, vViewPos;
+	uniform float uMirror, uT;
+	varying vec3 vNor, vViewPos, vWorld;
 	void main(){
-		vec3 p = aPos + uOffset;
-		vLocal = p;
-		vGrain = aGrain;
-		vec4 world = uModel * vec4(p, 1.0);
+		vec4 w = uModel * vec4(aPos, 1.0);
+		if(uMirror > 0.5){
+			// 倒影随水纹轻晃
+			w.x += sin(w.y * 2.2 + uT * 12.566) * 0.05;
+		}
+		vWorld = w.xyz;
 		vNor = mat3(uModel) * aNor;
-		vec4 vp = uView * world;
+		vec4 vp = uView * w;
 		vViewPos = vp.xyz;
 		gl_Position = uProj * vp;
 	}`,`
 	precision highp float;
-	varying vec3 vNor, vGrain, vLocal, vViewPos;
-	uniform float uHue, uExplode;
-	float hash(vec2 p){return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);}
-	float noise(vec2 p){
-		vec2 i = floor(p), f = fract(p);
-		vec2 u = f * f * (3.0 - 2.0 * f);
-		return mix(mix(hash(i), hash(i+vec2(1,0)), u.x),
-		           mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), u.x), u.y);
-	}
+	varying vec3 vNor, vViewPos, vWorld;
+	uniform float uMirror;
+	${NOISE_GLSL}
 	void main(){
 		vec3 N = normalize(vNor);
+		if(!gl_FrontFacing) N = -N;               // 纸是薄面,两面受光
 		vec3 V = normalize(-vViewPos);
-		// —— 木纹:顺长轴的近平行纹理,低对比,偶有大教堂纹波动 ——
-		float sway = noise(vec2(vGrain.x * 0.38, vGrain.z * 0.9) + uHue * 9.0) * 1.7;
-		float lines = sin((vGrain.y * 5.2 + vGrain.z * 1.4 + sway) * 3.14159);
-		float stripe = 0.5 + 0.26 * lines;
-		vec3 walnut1 = vec3(0.400, 0.252, 0.128) * uHue;
-		vec3 walnut2 = vec3(0.235, 0.136, 0.064) * uHue;
-		vec3 alb = mix(walnut2, walnut1, stripe);
-		alb += (noise(vec2(vGrain.x * 22.0, vGrain.y * 5.0)) - 0.5) * 0.030;  // 顺纹毛孔
-		alb += (noise(vGrain.yz * 27.0) - 0.5) * 0.014;
-		// —— 光照:路灯琥珀主光 + 雾蓝补光 + 冷环境 ——
-		vec3 key   = normalize(vec3(0.55, 0.78, 0.42));
-		vec3 fill  = normalize(vec3(-0.72, 0.10, -0.30));
-		vec3 rimL  = normalize(vec3(-0.15, 0.35, -0.95));
+		vec3 key  = normalize(vec3(0.50, 0.72, 0.48));
+		vec3 fill = normalize(vec3(-0.70, 0.12, -0.35));
 		float dKey  = max(dot(N, key), 0.0);
 		float dFill = max(dot(N, fill), 0.0);
-		vec3 col = alb * (vec3(0.10, 0.11, 0.14)
-			+ vec3(1.08, 0.78, 0.45) * 1.32 * pow(dKey, 1.12)
-			+ vec3(0.40, 0.53, 0.62) * 0.36 * dFill);
-		// 假 AO:靠近锁心更暗,散开时减弱
-		float ao = mix(0.34, 1.0, smoothstep(0.3, 3.2, length(vLocal)));
-		col *= mix(ao, 1.0, uExplode * 0.7);
-		// 蜡面高光 + 轮廓雾蓝 rim
-		vec3 H = normalize(key + V);
-		col += vec3(1.0, 0.87, 0.62) * pow(max(dot(N, H), 0.0), 24.0) * 0.15;
-		col += vec3(0.55, 0.70, 0.78) * pow(1.0 - max(dot(N, V), 0.0), 3.4)
-		       * max(dot(N, rimL), 0.0) * 0.22;
+		// 米白纸面 + 纤维噪点
+		vec3 alb = vec3(0.935, 0.905, 0.835);
+		alb *= 1.0 + (noise(vWorld.xy * 34.0 + vWorld.z * 11.0) - 0.5) * 0.05;
+		vec3 col = alb * (vec3(0.135, 0.145, 0.175)
+			+ vec3(1.06, 0.82, 0.52) * 1.08 * dKey
+			+ vec3(0.42, 0.55, 0.66) * 0.38 * dFill);
+		// 背光透纸:从纸背透过来的暖光
+		col += vec3(1.0, 0.72, 0.40) * pow(max(-dot(N, key), 0.0), 1.6) * 0.16 * alb;
+		// 轮廓一线雾蓝
+		col += vec3(0.50, 0.66, 0.76) * pow(1.0 - max(dot(N, V), 0.0), 3.6) * 0.14;
 		col = col / (col + 0.72);
-		gl_FragColor = vec4(pow(col, vec3(0.4545)), 1.0);
+		col = pow(col, vec3(0.4545));
+		if(uMirror > 0.5){
+			float depth = max(-1.9 - vWorld.y, 0.0);   // 水面下越深越淡
+			float a = 0.70 * exp(-depth * 0.18);
+			col = mix(col, vec3(0.05, 0.09, 0.14), 0.45);
+			gl_FragColor = vec4(col, a);
+		} else {
+			gl_FragColor = vec4(col, 1.0);
+		}
 	}`);
 
+/* 夜水 */
+const WATER = prog(`
+	attribute vec2 aXZ;
+	uniform mat4 uProj, uView;
+	varying vec3 vW;
+	void main(){
+		vW = vec3(aXZ.x, -1.9, aXZ.y);
+		gl_Position = uProj * uView * vec4(vW, 1.0);
+	}`,`
+	precision highp float;
+	varying vec3 vW;
+	uniform float uT;
+	${NOISE_GLSL}
+	void main(){
+		float z01 = clamp((vW.z + 40.0) / 45.0, 0.0, 1.0);   // 0 远 → 1 近
+		vec3 col = mix(vec3(0.026, 0.045, 0.072), vec3(0.008, 0.015, 0.028), z01);
+		// 街灯的倒影:几根竖直光条,随水纹摇
+		for(int i = 0; i < 5; i++){
+			float fi = float(i);
+			float sx = -9.2 + fi * 4.3 + hash(vec2(fi, 3.7)) * 1.6;
+			vec3 lc = i == 0 ? vec3(0.82, 0.29, 0.25)
+			        : (i == 3 ? vec3(0.50, 0.63, 0.70) : vec3(0.95, 0.75, 0.41));
+			float wob = sin(vW.z * 0.9 + uT * 6.2832 + fi * 2.1) * (0.05 + 0.20 * z01);
+			float b = exp(-pow((vW.x - sx + wob) * (2.2 - z01), 2.0) * 2.2);
+			b *= 0.72 + 0.28 * noise(vec2(vW.z * 2.6 - fi * 7.0, uT * 2.0 + fi));
+			col += lc * b * 0.20 * (0.90 - 0.42 * z01);
+		}
+		// 雨点涟漪:圆环荡开又散掉(相位错开,循环无缝)
+		for(int k = 0; k < 3; k++){
+			float fk = float(k);
+			vec2 c = vec2(-3.5 + fk * 3.4 + hash(vec2(fk, 9.1)) * 1.5,
+			              -3.0 - fk * 2.6 - hash(vec2(fk, 4.3)) * 2.0);
+			float pr = fract(uT + fk * 0.333);
+			float rad = pr * 1.35;
+			float d = length(vW.xz - c);
+			col += vec3(0.72, 0.78, 0.82) * exp(-pow((d - rad) * 10.0, 2.0))
+			       * pow(1.0 - pr, 1.8) * 0.14;
+		}
+		// 远处水汽
+		col += vec3(0.30, 0.42, 0.52) * 0.11 * pow(1.0 - z01, 1.6);
+		gl_FragColor = vec4(col, 1.0);
+	}`);
+
+/* 背景 / 后处理(颗粒+暗角) */
 const FLAT = prog(`
 	attribute vec2 aXY;
 	varying vec2 vUV;
 	void main(){ vUV = aXY * 0.5 + 0.5; gl_Position = vec4(aXY, 0.0, 1.0); }`,`
 	precision highp float;
 	varying vec2 vUV;
-	uniform int uMode;      // 0 背景 1 尘埃/后处理
-	uniform float uT, uSeed;
-	float hash(vec2 p){return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);}
+	uniform int uMode;
+	uniform float uSeed;
+	${NOISE_GLSL}
 	void main(){
 		vec2 uv = vUV;
 		if(uMode == 0){
-			// 夜色渐变 + 展台射灯辉光 + 地面反光
-			vec3 top = vec3(0.030, 0.052, 0.085), bot = vec3(0.010, 0.018, 0.034);
-			vec3 col = mix(bot, top, pow(uv.y, 1.2));
-			float d = distance(uv * vec2(2.27, 1.0), vec2(0.5 * 2.27, 0.58));
-			col += vec3(0.95, 0.70, 0.38) * 0.16 * exp(-d * d * 3.6);      // 琥珀射灯球
-			col += vec3(0.35, 0.48, 0.58) * 0.06 * exp(-pow((uv.y - 0.5) * 3.6, 2.0)); // 雾蓝腰带
-			float fd = distance(uv * vec2(2.27, 1.0), vec2(0.5 * 2.27, 0.10));
-			col += vec3(0.9, 0.64, 0.34) * 0.075 * exp(-fd * fd * 6.5);    // 展台映光
+			vec3 top = vec3(0.030, 0.052, 0.085), bot = vec3(0.011, 0.019, 0.035);
+			vec3 col = mix(bot, top, pow(uv.y, 1.15));
+			float d = distance(uv * vec2(2.27, 1.0), vec2(0.5 * 2.27, 0.60));
+			col += vec3(0.95, 0.70, 0.38) * 0.13 * exp(-d * d * 3.2);   // 高处一盏琥珀
+			col += vec3(0.35, 0.48, 0.58) * 0.05 * exp(-pow((uv.y - 0.44) * 4.2, 2.0));
 			gl_FragColor = vec4(col, 1.0);
 		} else {
-			// 颗粒 + 暗角(叠加在成像上)
 			float g = (hash(floor(gl_FragCoord.xy / 2.0) + uSeed) - 0.5) * 0.05;
 			float v = smoothstep(1.3, 0.45, distance(uv, vec2(0.5, 0.47)) * 1.35);
 			gl_FragColor = vec4(vec3(g), (1.0 - v) * 0.5 + 0.06);
 		}
 	}`);
 
+/* 尘埃(灯下浮尘) */
 const DUST = prog(`
-	attribute vec3 aP;      // x,y 基准位置(裁剪空间)/ z 相位
+	attribute vec3 aP;
 	uniform float uT;
 	varying float vA;
 	void main(){
 		float ph = aP.z;
 		float y = fract(aP.y * 0.5 + 0.5 + uT * (0.018 + fract(ph * 7.0) * 0.02)) * 2.0 - 1.0;
-		float x = aP.x + sin(uT * 6.28318 * 1.0 + ph * 40.0) * 0.012;
-		vA = (0.5 + 0.5 * sin(uT * 6.28318 * 2.0 + ph * 91.0));
-		vA *= smoothstep(1.0, 0.72, abs(x)) * smoothstep(1.05, 0.6, abs(y));
+		float x = aP.x + sin(uT * 6.28318 + ph * 40.0) * 0.012;
+		vA = (0.5 + 0.5 * sin(uT * 12.566 + ph * 91.0));
+		vA *= smoothstep(1.0, 0.7, abs(x)) * smoothstep(1.05, 0.55, abs(y));
 		gl_Position = vec4(x, y, 0.0, 1.0);
-		gl_PointSize = 2.6 + fract(ph * 13.0) * 3.4;
+		gl_PointSize = 2.4 + fract(ph * 13.0) * 3.0;
 	}`,`
 	precision highp float;
 	varying float vA;
 	void main(){
 		float d = length(gl_PointCoord - 0.5);
 		if(d > 0.5) discard;
-		gl_FragColor = vec4(0.95, 0.82, 0.58, (0.5 - d) * 0.5 * vA);
-	}`);
-
-const SHADOW = prog(`
-	attribute vec2 aXY;
-	uniform mat4 uProj, uView;
-	uniform float uSpread;
-	varying vec2 vUV;
-	void main(){
-		vUV = aXY;
-		vec3 p = vec3(aXY.x * (4.3 + uSpread * 1.7), -4.9, aXY.y * (4.3 + uSpread * 1.7));
-		gl_Position = uProj * uView * vec4(p, 1.0);
-	}`,`
-	precision highp float;
-	varying vec2 vUV;
-	uniform float uSpread;
-	void main(){
-		float d = length(vUV);
-		float a = smoothstep(1.0, 0.1, d) * (0.5 - uSpread * 0.2);
-		// 射灯光池的边缘,落在地上的一圈微光
-		float pool = exp(-pow((d - 0.88) * 16.0, 2.0)) * 0.085;
-		gl_FragColor = vec4(vec3(0.95, 0.72, 0.42) * pool, a + pool);
+		gl_FragColor = vec4(0.95, 0.82, 0.58, (0.5 - d) * 0.4 * vA);
 	}`);
 
 /* ── buffers ── */
-function vbo(data){const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);return b}
-function ibo(data){const b=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,b);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,data,gl.STATIC_DRAW);return b}
-for(const m of meshes){m.bPos=vbo(m.geo.pos);m.bNor=vbo(m.geo.nor);m.bGrain=vbo(m.geo.grain);m.bIdx=ibo(m.geo.idx);m.n=m.geo.idx.length}
+function vbo(data, dynamic){const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);
+	gl.bufferData(gl.ARRAY_BUFFER,data,dynamic?gl.DYNAMIC_DRAW:gl.STATIC_DRAW);return b}
 const quad = vbo(new Float32Array([-1,-1, 1,-1, 1,1, -1,-1, 1,1, -1,1]));
-const dustPts = (()=>{const a=[];for(let i=0;i<110;i++)a.push((R()*2-1)*0.96,(R()*2-1),R());return vbo(new Float32Array(a))})();
+const waterQuad = vbo(new Float32Array([-40,-40, 40,-40, 40,5, -40,-40, 40,5, -40,5]));
+const dustPts = (()=>{const a=[];for(let i=0;i<90;i++)a.push((R()*2-1)*0.96,(R()*2-1),R());return vbo(new Float32Array(a))})();
+const craneBuf = {pos: vbo(new Float32Array(3), true), nor: vbo(new Float32Array(3), true), n: 0};
+
+function uploadCrane(u){
+	const tris = craneTris(u);
+	const pos=[], nor=[];
+	for(const [a,b,c] of tris){
+		const n = vnorm(vcross(vsub(b,a), vsub(c,a)));
+		for(const p of [a,b,c]){ pos.push(...p); nor.push(...n); }
+	}
+	gl.bindBuffer(gl.ARRAY_BUFFER, craneBuf.pos);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pos), gl.DYNAMIC_DRAW);
+	gl.bindBuffer(gl.ARRAY_BUFFER, craneBuf.nor);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(nor), gl.DYNAMIC_DRAW);
+	craneBuf.n = pos.length / 3;
+}
 
 function attr(p,name,buf,size){const l=gl.getAttribLocation(p,name);gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,size,gl.FLOAT,false,0,0)}
 const U = (p,n)=>gl.getUniformLocation(p,n);
 
-/* ── 时间轴 ── */
-const ss = (a,b,x)=>{const u=Math.min(Math.max((x-a)/(b-a),0),1);return u*u*u*(u*(u*6-15)+10)};
-function envelope(u){ return ss(0.22,0.40,u) * (1 - ss(0.60,0.78,u)); }
-
+/* ── 绘制 ── */
 function draw(t){
 	const u = (t % T) / T;
-	const e = envelope(u);                       // 0 合拢 → 1 散开
 	gl.viewport(0,0,cv.width,cv.height);
-	gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
+	gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
 
 	// 背景
 	gl.useProgram(FLAT);
 	attr(FLAT,'aXY',quad,2);
 	gl.uniform1i(U(FLAT,'uMode'),0);
-	gl.uniform1f(U(FLAT,'uT'),u);
 	gl.uniform1f(U(FLAT,'uSeed'),0);
 	gl.drawArrays(gl.TRIANGLES,0,6);
 
-	// 相机与全局姿态
-	const proj = M4.persp(0.44, cv.width/cv.height, 1, 100);
-	const dist = 22.5 + Math.sin(u*Math.PI*2) * 0.45;
-	const view = M4.mul(M4.trans(0,-0.30,-dist), M4.rotX(0.30));
-	const yaw = u * Math.PI * 2;
-	const pitch = Math.sin(u * Math.PI * 2 * 2) * 0.09;
-	const model0 = M4.mul(M4.trans(0, 0.55, 0), M4.mul(M4.rotX(pitch), M4.rotY(yaw)));
+	const proj = M4.persp(0.5, cv.width/cv.height, 0.5, 80);
+	const view = M4.mul(M4.trans(0,-0.55,-10.4), M4.rotX(0.07));
 
-	// 地面软影(散开时变大变淡)
-	gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-	gl.useProgram(SHADOW);
-	attr(SHADOW,'aXY',quad,2);
-	gl.uniformMatrix4fv(U(SHADOW,'uProj'),false,proj);
-	gl.uniformMatrix4fv(U(SHADOW,'uView'),false,view);
-	gl.uniform1f(U(SHADOW,'uSpread'),e);
+	// 夜水
+	gl.useProgram(WATER);
+	attr(WATER,'aXZ',waterQuad,2);
+	gl.uniformMatrix4fv(U(WATER,'uProj'),false,proj);
+	gl.uniformMatrix4fv(U(WATER,'uView'),false,view);
+	gl.uniform1f(U(WATER,'uT'),u);
 	gl.drawArrays(gl.TRIANGLES,0,6);
+
+	// 鹤的姿态:公转一周 + 呼吸起伏(与扇翅同拍)
+	uploadCrane(u);
+	const bob = 0.15 * Math.sin(u*Math.PI*4 + 0.4708);
+	const pitch = 0.035 * Math.sin(u*Math.PI*4 + 1.9708);
+	const yaw = 0.34 + 0.55 * Math.sin(u*Math.PI*2);
+	const model = M4.mul(M4.trans(0, 0.55 + bob, 0), M4.mul(M4.mul(M4.rotX(pitch), M4.rotY(yaw)), M4.scale(1.30,1.30,1.30)));
+	const mirror = M4.mul(M4.mul(M4.trans(0, 2*(-1.9), 0), M4.scale(1,-1,1)), model);
+
+	// 倒影(先画,半透明,不写深度)
+	gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+	gl.useProgram(PAPER);
+	attr(PAPER,'aPos',craneBuf.pos,3); attr(PAPER,'aNor',craneBuf.nor,3);
+	gl.uniformMatrix4fv(U(PAPER,'uProj'),false,proj);
+	gl.uniformMatrix4fv(U(PAPER,'uView'),false,view);
+	gl.uniformMatrix4fv(U(PAPER,'uModel'),false,mirror);
+	gl.uniform1f(U(PAPER,'uMirror'),1);
+	gl.uniform1f(U(PAPER,'uT'),u);
+	gl.drawArrays(gl.TRIANGLES,0,craneBuf.n);
 	gl.disable(gl.BLEND);
 
-	// 六件木条
+	// 鹤本体
 	gl.enable(gl.DEPTH_TEST);
 	gl.clear(gl.DEPTH_BUFFER_BIT);
-	gl.useProgram(WOOD);
-	gl.uniformMatrix4fv(U(WOOD,'uProj'),false,proj);
-	gl.uniformMatrix4fv(U(WOOD,'uView'),false,view);
-	gl.uniformMatrix4fv(U(WOOD,'uModel'),false,model0);
-	gl.uniform1f(U(WOOD,'uExplode'),e);
-	const spread = e * 1.45;
-	for(const m of meshes){
-		attr(WOOD,'aPos',m.bPos,3); attr(WOOD,'aNor',m.bNor,3); attr(WOOD,'aGrain',m.bGrain,3);
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,m.bIdx);
-		gl.uniform3f(U(WOOD,'uOffset'), m.dir[0]*spread, m.dir[1]*spread, m.dir[2]*spread);
-		gl.uniform1f(U(WOOD,'uHue'), m.hue);
-		gl.drawElements(gl.TRIANGLES,m.n,gl.UNSIGNED_SHORT,0);
-	}
+	gl.uniformMatrix4fv(U(PAPER,'uModel'),false,model);
+	gl.uniform1f(U(PAPER,'uMirror'),0);
+	gl.drawArrays(gl.TRIANGLES,0,craneBuf.n);
 	gl.disable(gl.DEPTH_TEST);
 
-	// 尘埃(加色)
+	// 尘埃
 	gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
 	gl.useProgram(DUST);
 	attr(DUST,'aP',dustPts,3);
 	gl.uniform1f(U(DUST,'uT'),u);
-	gl.drawArrays(gl.POINTS,0,110);
+	gl.drawArrays(gl.POINTS,0,90);
 
 	// 颗粒 + 暗角
 	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -340,7 +339,7 @@ function draw(t){
 }
 
 window.seek = f => { draw(f / FPS); return 'f' + f; };
-draw(2.0);   // 直接打开本文件时给一帧静态预览
+draw(1.2);
 </script>
 </body>
 </html>

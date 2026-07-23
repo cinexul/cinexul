@@ -16,9 +16,9 @@
 
 <picture><source media="(prefers-color-scheme: light)" srcset="assets/h1-light.svg"><img src="assets/h1.svg" width="100%" alt="01 · 展品 — EXHIBIT №001"/></picture>
 
-<img src="assets/exhibit.webp" width="100%" alt="展品 №001 · 鲁班锁:六根程序生成的胡桃木条在射灯下缓慢翻转,周期性地无声散开、悬停、再严丝合缝地合拢。手写 WebGL 渲染,十秒完美循环。"/>
+<img src="assets/exhibit.webp" width="100%" alt="展品 №001 · 纸鹤:一只米白的折纸鹤停在夜水上方,在风里轻轻摇摆、扇翅,纸面透着背光;水面拖着街灯的琥珀倒影,雨点偶尔漾开涟漪,鹤的倒影随水纹微晃。手写 WebGL 渲染,十秒完美循环。"/>
 
-<img src="assets/plaque.svg" width="100%" alt="展签 — 材质:胡桃木(程序生成);工艺:六轴互锁,不用一颗钉,体素减法开槽;渲染:手写 WebGL,无引擎。『榫对上卯的那一声轻响,就是测试全绿的感觉。』"/>
+<img src="assets/plaque.svg" width="100%" alt="展签 — 材质:一张方纸(程序折叠);工艺:折纸,不裁不剪,不用一滴胶;场景:夜水之上,街灯倒影,雨点涟漪。『纸很轻,折过之后,就敢站在风里了。』"/>
 
 <picture><source media="(prefers-color-scheme: light)" srcset="assets/h2-light.svg"><img src="assets/h2.svg" width="100%" alt="02 · 以光为弦 — LANGUAGES AS STRINGS"/></picture>
 
@@ -42,7 +42,7 @@ GitHub 的 README 会剥掉一切 CSS / JS,但 `<img>` 里的 SVG 是一份独�
 内部的 CSS 动画、滤镜、渐变、蒙版全部生效。于是:
 
 - **雨夜车窗、弦、终端、隧道**都是手写的动画 SVG,由 [`profile/render.py`](profile/render.py) 从数据渲染,伪随机定种子、字节级可复现;水珠按"透镜"画:暗芯、薄亮边、底部映街灯,蠕动式滑落并留下湿痕;
-- **鲁班锁**是手写 WebGL([`profile/exhibit/scene.html`](profile/exhibit/scene.html),无引擎):六件的开槽由体素优先级减法推导、严格互补,无头浏览器逐帧录制 200 帧,Pillow 合成 10 秒完美循环的动画 WebP;
+- **纸鹤**是手写 WebGL([`profile/exhibit/scene.html`](profile/exhibit/scene.html),无引擎):折痕即三角面、纸面两面受光并微微透光,夜水、街灯倒影、涟漪与倒影晃动都在着色器里;无头浏览器逐帧录制 200 帧,Pillow 合成 10 秒完美循环的动画 WebP;
 - **数据是活的**:[`profile/fetch.py`](profile/fetch.py) 在 [Actions](.github/workflows/develop.yml) 里每 6 小时抓一次公开数据(语言字节、star、近期 push),重渲染并自动提交——提交历史就是显影批号;
 - 分节标题用 `<picture>` + `prefers-color-scheme` 跟随明暗主题;所有 SVG 内置 `prefers-reduced-motion` 守卫。
 
