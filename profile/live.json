@@ -1,7 +1,7 @@
 {
-  "develop_no": 1,
-  "develop_ts": "2026-07-22 08:45 UTC",
-  "develop_date": "2026-07-22",
+  "develop_no": 2,
+  "develop_ts": "2026-07-23 00:29 UTC",
+  "develop_date": "2026-07-23",
   "est_year": "2026",
   "days_in_darkroom": 30,
   "followers": 0,
@@ -10,25 +10,25 @@
   "pushes_recent": 10,
   "languages_source": "local linguist seed",
   "languages": [
-    { "name": "Svelte",     "bytes": 590953 },
-    { "name": "TypeScript", "bytes": 340697 },
-    { "name": "Rust",       "bytes": 293160 },
-    { "name": "JavaScript", "bytes": 126749 },
-    { "name": "CSS",        "bytes": 19870 }
-  ],
-  "reel": [
-    { "title": "摄影 · 胶片图集",   "tag": "PHOTOGRAPHY", "date": "CINEXUL.COM" },
-    { "title": "随笔 · 縦書き卷轴", "tag": "ESSAYS",      "date": "CINEXUL.COM" },
-    { "title": "洞见 · 阅读模式",   "tag": "INSIGHTS",    "date": "CINEXUL.COM" },
-    { "title": "碎碎念 · 深夜电波", "tag": "MOMENTS",     "date": "CINEXUL.COM" },
-    { "title": "快讯 · 深夜电讯社", "tag": "NEWS",        "date": "CINEXUL.COM" },
-    { "title": "编程 · 控制台",     "tag": "CODE",        "date": "CINEXUL.COM" }
-  ],
-  "feed_note": "SOURCE: CINEXUL.COM/FEED.XML",
-  "log_lines": [
-    { "ts": "2026-07-22 08:45", "text": "profile darkroom online — first develop" },
-    { "ts": "2026-07-21 02:53", "text": "cinexul.com · 关于页「深海信标」上线" },
-    { "ts": "2026-07-12 02:46", "text": "cinexul.com · 快讯「深夜电讯社」开播" },
-    { "ts": "2026-06-22 15:04", "text": "signal acquired — the darkroom lights up" }
+    {
+      "name": "Svelte",
+      "bytes": 590953
+    },
+    {
+      "name": "TypeScript",
+      "bytes": 340697
+    },
+    {
+      "name": "Rust",
+      "bytes": 293160
+    },
+    {
+      "name": "JavaScript",
+      "bytes": 126749
+    },
+    {
+      "name": "CSS",
+      "bytes": 19870
+    }
   ]
 }

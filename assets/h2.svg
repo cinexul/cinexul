@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 46" width="1000" height="46" role="img" aria-label="走马灯 — THE REVOLVING REEL">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 46" width="1000" height="46" role="img" aria-label="以光为弦 — LANGUAGES AS STRINGS">
 <style>@keyframes hp{50%{opacity:0.25}}.hp{animation:hp 4.2s ease-in-out infinite}@media (prefers-reduced-motion:reduce){*{animation:none !important}.rm-hide{display:none}}</style>
 <defs><linearGradient id="hr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="rgba(233,238,244,0.13)"/><stop offset="1" stop-color="rgba(0,0,0,0)" stop-opacity="0"/></linearGradient></defs>
 <rect x="1" y="12" width="30" height="21" rx="2" fill="none" stroke="rgba(233,238,244,0.13)"/>
 <text x="16" y="27" font-size="9.5" fill="rgba(233,238,244,0.42)" font-family="'JetBrains Mono','SFMono-Regular','Cascadia Code',Menlo,Consolas,'Liberation Mono',monospace" letter-spacing="0.1em" text-anchor="middle">02</text>
-<text x="46" y="29" font-size="14.5" fill="#e9eef4" font-family="'Noto Serif SC','Songti SC','STSong','SimSun','Yu Mincho','MS Mincho',serif" letter-spacing="0.3em">走马灯</text>
-<text x="150.55" y="28" font-size="8" fill="rgba(233,238,244,0.42)" font-family="'JetBrains Mono','SFMono-Regular','Cascadia Code',Menlo,Consolas,'Liberation Mono',monospace" letter-spacing="0.42em">THE REVOLVING REEL</text>
-<line x1="284.55" y1="23" x2="974" y2="23" stroke="url(#hr)"/>
+<text x="46" y="29" font-size="14.5" fill="#e9eef4" font-family="'Noto Serif SC','Songti SC','STSong','SimSun','Yu Mincho','MS Mincho',serif" letter-spacing="0.3em">以光为弦</text>
+<text x="169.4" y="28" font-size="8" fill="rgba(233,238,244,0.42)" font-family="'JetBrains Mono','SFMono-Regular','Cascadia Code',Menlo,Consolas,'Liberation Mono',monospace" letter-spacing="0.42em">LANGUAGES AS STRINGS</text>
+<line x1="315.4" y1="23" x2="974" y2="23" stroke="url(#hr)"/>
 <rect class="hp" x="986" y="19" width="8" height="8" transform="rotate(45 990 23)" fill="#f2c069" opacity="0.7"/>
 </svg>

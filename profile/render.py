@@ -201,15 +201,19 @@ def gen_hero(cfg: dict, live: dict) -> str:
         '<radialGradient id="vig" cx="0.5" cy="0.46" r="0.72">'
         '<stop offset="0.55" stop-color="rgba(1,4,9,0)"/>'
         '<stop offset="1" stop-color="rgba(1,4,9,0.55)"/></radialGradient>',
-        '<radialGradient id="drop" cx="0.36" cy="0.3" r="0.9">'
-        '<stop offset="0" stop-color="rgba(255,255,255,0.20)"/>'
-        '<stop offset="0.28" stop-color="rgba(233,238,244,0.05)"/>'
-        '<stop offset="0.62" stop-color="rgba(207,224,234,0.03)"/>'
-        '<stop offset="0.86" stop-color="rgba(207,224,234,0.12)"/>'
-        '<stop offset="1" stop-color="rgba(150,180,200,0.02)"/></radialGradient>',
-        '<linearGradient id="dtail" x1="0" y1="0" x2="0" y2="1">'
-        '<stop offset="0" stop-color="rgba(207,224,234,0)"/>'
-        '<stop offset="1" stop-color="rgba(207,224,234,0.10)"/></linearGradient>',
+        # 水珠是小透镜:芯比玻璃暗,边缘薄亮,底部映着街灯
+        '<radialGradient id="dcore" cx="0.5" cy="0.42" r="0.62">'
+        '<stop offset="0" stop-color="rgba(2,6,13,0.60)"/>'
+        '<stop offset="0.55" stop-color="rgba(8,17,30,0.34)"/>'
+        '<stop offset="0.85" stop-color="rgba(150,182,208,0.08)"/>'
+        '<stop offset="1" stop-color="rgba(198,222,242,0.17)"/></radialGradient>',
+        '<radialGradient id="dstreet" cx="0.5" cy="0.5" r="0.5">'
+        f'<stop offset="0" stop-color="{LAMP}" stop-opacity="0.55"/>'
+        f'<stop offset="0.6" stop-color="{LAMP}" stop-opacity="0.16"/>'
+        f'<stop offset="1" stop-color="{LAMP}" stop-opacity="0"/></radialGradient>',
+        '<linearGradient id="dwet" x1="0" y1="0" x2="0" y2="1">'
+        '<stop offset="0" stop-color="rgba(190,215,235,0)"/>'
+        '<stop offset="1" stop-color="rgba(190,215,235,0.11)"/></linearGradient>',
         '<linearGradient id="ttrail" x1="0" y1="0" x2="1" y2="0">'
         f'<stop offset="0" stop-color="rgba(210,74,65,0)"/>'
         f'<stop offset="1" stop-color="rgba(210,74,65,0.55)"/></linearGradient>',
@@ -282,41 +286,93 @@ def gen_hero(cfg: dict, live: dict) -> str:
     rain.append("</g></g>")
     body.append("".join(rain))
 
-    # 玻璃上的凝水珠:黏住—滑落—再黏住
-    css.append(
-        "@keyframes slipA{0%{transform:translateY(0)}14%{transform:translateY(7px)}"
-        "34%{transform:translateY(9px)}52%{transform:translateY(74px)}"
-        "66%{transform:translateY(80px)}88%{transform:translateY(228px)}"
-        "96%,100%{transform:translateY(340px)}}"
-        "@keyframes slipB{0%{transform:translateY(0)}22%{transform:translateY(14px)}"
-        "48%{transform:translateY(120px)}60%{transform:translateY(128px)}"
-        "100%{transform:translateY(360px)}}"
-        "@keyframes dfade{0%,4%{opacity:0}10%,82%{opacity:1}96%,100%{opacity:0}}")
+    # ── 玻璃凝水珠 ──
+    # 真实感的三个关键:① 水珠是透镜,芯比玻璃暗、边缘一圈薄亮;
+    # ② 底部映着街灯的琥珀(越靠近下方的珠越亮);③ 滑落是蠕动式的
+    # "黏住—挣脱—再黏住",走过的地方留一道湿痕和残珠。
+    def blob(rr: float, seed_phase: float) -> tuple[str, str, list]:
+        """不规则水珠轮廓(闭合平滑曲线)、底缘弧线,以及原始点集。"""
+        pts = []
+        n = 12
+        w1, w2 = 0.05 + rng() * 0.05, 0.04 + rng() * 0.04
+        p1, p2 = rng() * 6.28, rng() * 6.28
+        for j in range(n):
+            th = -math.pi / 2 + j / n * math.pi * 2
+            rad = rr * (1 + w1 * math.sin(2 * th + p1) + w2 * math.sin(3 * th + p2))
+            px = rad * math.cos(th) * 0.94
+            py = rad * math.sin(th) * 1.16
+            if math.sin(th) < 0:                       # 上半收窄,略呈垂滴形
+                px *= 1 - 0.10 * (-math.sin(th))
+            pts.append((px, py))
+        mids = [((pts[j][0] + pts[(j + 1) % n][0]) / 2,
+                 (pts[j][1] + pts[(j + 1) % n][1]) / 2) for j in range(n)]
+        d = f"M{fnum(mids[-1][0])},{fnum(mids[-1][1])}"
+        for j in range(n):
+            d += f" Q{fnum(pts[j][0])},{fnum(pts[j][1])} {fnum(mids[j][0])},{fnum(mids[j][1])}"
+        d += "Z"
+        lower = [p for p in pts if p[1] > rr * 0.30]
+        lower.sort(key=lambda p: math.atan2(p[1], p[0]))
+        arc = f"M{fnum(lower[0][0])},{fnum(lower[0][1])}" + "".join(
+            f" L{fnum(p[0])},{fnum(p[1])}" for p in lower[1:])
+        return d, arc, pts
+
+    css.append("@keyframes dfade{0%,3%{opacity:0}9%,80%{opacity:1}95%,100%{opacity:0}}")
     drops = ['<g clip-path="url(#glass)">']
-    for i in range(9):
-        x = 50 + rng() * 900
-        y = 26 + rng() * 130
-        s = 0.5 + rng() * 0.75
-        dur = 10 + rng() * 9
-        k = "slipA" if rng() < 0.6 else "slipB"
+    for i in range(8):
+        x = 60 + rng() * 880
+        y = 30 + rng() * 140
+        s = 0.52 + rng() * 0.55
+        dur = 11 + rng() * 8
+        # 蠕动式滑落:关键帧带横向游移与体积缩小
+        sgn = 1 if rng() < 0.5 else -1
+        kp = [(0, 0, 0, 1), (8 + rng() * 5, sgn * 0.6, 2.5, 1),
+              (24 + rng() * 6, -sgn * 0.9, 8, 0.99), (40 + rng() * 5, sgn * 1.7, 58 + rng() * 26, 0.97),
+              (54 + rng() * 5, sgn * 1.2, 66 + rng() * 26, 0.96),
+              (76 + rng() * 5, -sgn * 1.5, 185 + rng() * 55, 0.90), (100, sgn * 0.8, 335, 0.85)]
+        frames = "".join(f"{fnum(p)}%{{transform:translate({fnum(dx)}px,{fnum(dy)}px) scale({fnum(sc)})}}"
+                         for p, dx, dy, sc in kp)
+        css.append(f"@keyframes slip{i}{{{frames}}}")
+        d, arc, _ = blob(10, rng() * 6.28)
+        defs.append(f'<clipPath id="dc{i}"><path d="{d}"/></clipPath>')
+        street = 0.22 + 0.42 * (y / H)                 # 越低越接近街灯,映光越亮
         drops.append(
-            f'<g style="animation:{k} {fnum(dur)}s {EASE} {fnum(-rng() * dur)}s infinite,'
+            f'<g style="animation:slip{i} {fnum(dur)}s {EASE} {fnum(-rng() * dur)}s infinite,'
             f'dfade {fnum(dur)}s linear {fnum(-rng() * dur)}s infinite" opacity="0">'
             f'<g transform="translate({fnum(x)},{fnum(y)}) scale({fnum(s)})">'
-            '<rect x="-1.4" y="-30" width="2.8" height="24" rx="1.4" fill="url(#dtail)"/>'
-            '<circle r="11" fill="url(#drop)"/>'
-            f'<circle r="11" fill="none" stroke="rgba(233,238,244,0.16)" stroke-width="1" '
-            'stroke-dasharray="30 39" transform="rotate(-134)"/>'
-            '<ellipse cx="-3.4" cy="-4" rx="3" ry="2.1" fill="rgba(255,255,255,0.22)" transform="rotate(-18)"/>'
+            # 湿痕与残珠(拖在上方)
+            '<path d="M-1.1,-8 L-0.75,-27 Q0,-29.5 0.75,-27 L1.1,-8 Z" fill="url(#dwet)"/>'
+            f'<circle cx="{fnum((rng() - 0.5) * 2)}" cy="-15" r="0.95" fill="rgba(190,215,235,0.10)"/>'
+            f'<circle cx="{fnum((rng() - 0.5) * 2.4)}" cy="-22" r="0.8" fill="rgba(190,215,235,0.08)"/>'
+            # 珠体:暗芯透镜 + 街灯月牙 + 底缘薄亮 + 高光
+            f'<path d="{d}" fill="url(#dcore)" stroke="rgba(233,238,244,0.10)" stroke-width="0.6"/>'
+            f'<ellipse cx="0" cy="6.4" rx="7.0" ry="4.6" fill="url(#dstreet)" '
+            f'opacity="{fnum(street)}" clip-path="url(#dc{i})"/>'
+            f'<path d="{arc}" fill="none" stroke="rgba(212,233,248,0.30)" stroke-width="1.05" '
+            'stroke-linecap="round"/>'
+            '<ellipse cx="-2.7" cy="-3.6" rx="2.0" ry="1.25" fill="rgba(255,255,255,0.50)" '
+            'transform="rotate(-24 -2.7 -3.6)"/>'
+            '<circle cx="-1.15" cy="-4.9" r="0.5" fill="rgba(255,255,255,0.72)"/>'
             "</g></g>")
-    # 静止微水珠
+    # 静止微水珠(玻璃上的凝露背景,含少量竖长珠与成簇)
     css.append("@keyframes shim{50%{opacity:0.16}}")
-    for _ in range(30):
-        x, y = 20 + rng() * 960, 20 + rng() * 400
-        r = 0.7 + rng() * 1.7
-        extra = (f' style="animation:shim {fnum(4 + rng() * 5)}s ease-in-out '
-                 f'{fnum(-rng() * 5)}s infinite"') if rng() < 0.4 else ""
-        drops.append(f'<circle cx="{fnum(x)}" cy="{fnum(y)}" r="{fnum(r)}" fill="#cfe0ea" opacity="0.09"{extra}/>')
+    for _ in range(36):
+        cluster = rng() < 0.3
+        bx, by = 20 + rng() * 960, 20 + rng() * 400
+        for _ in range(3 if cluster else 1):
+            x2, y2 = bx + (rng() - 0.5) * 26, by + (rng() - 0.5) * 20
+            r = 0.6 + rng() * rng() * 2.1
+            tall = rng() < 0.4
+            extra = (f' style="animation:shim {fnum(4 + rng() * 5)}s ease-in-out '
+                     f'{fnum(-rng() * 5)}s infinite"') if rng() < 0.35 else ""
+            if tall:
+                drops.append(f'<ellipse cx="{fnum(x2)}" cy="{fnum(y2)}" rx="{fnum(r * 0.72)}" '
+                             f'ry="{fnum(r * 1.35)}" fill="#cfe0ea" opacity="0.085"{extra}/>')
+            else:
+                drops.append(f'<circle cx="{fnum(x2)}" cy="{fnum(y2)}" r="{fnum(r)}" '
+                             f'fill="#cfe0ea" opacity="0.09"{extra}/>')
+            if r > 1.7:
+                drops.append(f'<circle cx="{fnum(x2 - r * 0.3)}" cy="{fnum(y2 - r * 0.4)}" r="0.4" '
+                             'fill="rgba(255,255,255,0.30)"/>')
     drops.append("</g>")
     body.append("".join(drops))
 
@@ -347,8 +403,8 @@ def gen_hero(cfg: dict, live: dict) -> str:
                 + text_el(x0 + 2, 226, 21, MUTED, esc(cfg["tagline_cjk"]), ls="0.14em", ff=SERIF)
                 + "</g>")
     body.append(text_el(x0 + 3, 258, 9.5, FAINT,
-                        esc(f"DARKROOM STILL GLOWING · SIGNAL FROM THE RAIN · EST. {live['est_year']}"),
-                        ls="0.34em"))
+                        esc(f"CRAFTSMAN BEFORE PROGRAMMER · THE KNIFE CHANGED, NOT THE HANDS · EST. {live['est_year']}"),
+                        ls="0.3em"))
 
     # 角标与取景框
     body.append(f'<rect x="14" y="14" width="{W-28}" height="{H-28}" rx="8" fill="none" stroke="{LINE}"/>')
@@ -463,71 +519,36 @@ def gen_strings(live: dict) -> str:
                      "".join(css), "".join(defs)) + "\n".join(body) + "\n</svg>\n")
 
 
-# ═══════════════════════ 03 · 走马灯(胶片传送带) ═══════════════════════
+# ═══════════════════════ 展签(展品说明牌) ═══════════════════════
 
-def gen_reel(live: dict) -> str:
-    frames = live["reel"]
-    k = max(len(frames), 5)
-    frames = (frames * ((k // len(frames)) + 1))[:k] if frames else []
-    CW, GAP = 216, 16
-    P = CW + GAP
-    W, H = 1000, 178
-    total_w = k * P
-    dur = k * 4.8
-
-    css = [GRAIN_CSS,
-           f"@keyframes belt{{to{{transform:translateX(-{total_w}px)}}}}"
-           f".belt{{animation:belt {fnum(dur)}s linear infinite}}",
-           "@keyframes bob{50%{transform:translateY(2.4px)}}"
-           ".bob{animation:bob 5.6s ease-in-out infinite}"]
-    defs = [grain_defs(),
-            '<linearGradient id="fade" x1="0" y1="0" x2="1" y2="0">'
-            '<stop offset="0" stop-color="#000" stop-opacity="0"/>'
-            '<stop offset="0.07" stop-color="#fff" stop-opacity="1"/>'
-            '<stop offset="0.93" stop-color="#fff" stop-opacity="1"/>'
-            '<stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>',
-            f'<mask id="reelmask"><rect width="{W}" height="{H}" fill="url(#fade)"/></mask>',
-            '<radialGradient id="hot" cx="0.5" cy="0.5" r="0.5">'
-            f'<stop offset="0" stop-color="{LAMP}" stop-opacity="0.10"/>'
-            f'<stop offset="1" stop-color="{LAMP}" stop-opacity="0"/></radialGradient>']
-
+def gen_plaque(cfg: dict, live: dict) -> str:
+    W, H = 1000, 148
+    ex = cfg["exhibit"]
+    css = ["@keyframes hp{50%{opacity:0.25}}.hp{animation:hp 4.2s ease-in-out infinite}"]
+    defs = [grain_defs()]
     body = [f'<rect width="{W}" height="{H}" rx="8" fill="{INK1}"/>',
-            f'<rect x="10" y="10" width="{W-20}" height="{H-20}" rx="6" fill="none" stroke="{LINE_SOFT}"/>',
-            '<g mask="url(#reelmask)"><g class="bob"><g transform="rotate(-0.5 500 89)">']
-
-    strip = [f'<rect x="-40" y="34" width="{W + 80}" height="110" fill="#0a0f18" '
-             f'stroke="rgba(233,238,244,0.10)"/>']
-    # 传送带(内容画两份,平移一份宽度后无缝循环)
-    cells = []
-    for rep in range(2):
-        for i, fr in enumerate(frames):
-            x = rep * total_w + i * P
-            cells.append(f'<g transform="translate({x},0)">')
-            cells.append(f'<rect x="0" y="52" width="{CW}" height="74" rx="2" fill="{INK2}" '
-                         f'stroke="rgba(233,238,244,0.09)"/>')
-            cells.append(f'<rect x="0" y="52" width="3" height="74" fill="{LAMP}" opacity="0.35"/>')
-            cells.append(text_el(14, 70, 8, FAINT, esc(f"FR {i + 1:02d} · {fr.get('tag', 'SIGNAL')}"),
-                                 ls="0.22em"))
-            cells.append(text_el(14, 92, 11.5, CREAM, esc(trunc(fr["title"], 16.5)), ls="0.06em", ff=SERIF))
-            cells.append(text_el(14, 112, 8.5, FAINT, esc(fr.get("date", "")), ls="0.16em"))
-            # 齿孔
-            for hx in range(10, CW - 8, 26):
-                cells.append(f'<rect x="{hx}" y="40" width="14" height="8" rx="2" fill="{INK0}" '
-                             'stroke="rgba(233,238,244,0.07)"/>')
-                cells.append(f'<rect x="{hx}" y="130" width="14" height="8" rx="2" fill="{INK0}" '
-                             'stroke="rgba(233,238,244,0.07)"/>')
-            cells.append("</g>")
-    strip.append(f'<g class="belt">{"".join(cells)}</g>')
-    body.append("".join(strip))
-    body.append("</g></g>")
-    # 中央灯箱热斑 + 颗粒
-    body.append(f'<ellipse cx="500" cy="89" rx="330" ry="120" fill="url(#hot)"/>')
+            f'<rect x="10" y="10" width="{W-20}" height="{H-20}" rx="6" fill="none" stroke="{LINE_SOFT}"/>']
+    # 左:展品编号与名称
+    body.append(text_el(44, 46, 8.5, FAINT, esc(f"展品 №{ex['no']} · EXHIBIT"), ls="0.3em"))
+    body.append(text_el(44, 82, 23, TEXT, esc(ex["title"]), ls="0.22em", ff=SERIF))
+    body.append(text_el(44, 110, 8, FAINT, esc(ex["title_en"]), ls="0.3em"))
+    body.append(f'<line x1="330" y1="30" x2="330" y2="{H-30}" stroke="{LINE_SOFT}"/>')
+    # 中:工艺参数(博物馆式说明)
+    for i, spec in enumerate(ex["specs"]):
+        y = 46 + i * 21
+        body.append(text_el(362, y, 9, "rgba(233,238,244,0.36)", esc(spec[0]), ls="0.24em"))
+        body.append(text_el(438, y, 9.5, MUTED, esc(spec[1]), ls="0.1em"))
+    body.append(f'<line x1="694" y1="30" x2="694" y2="{H-30}" stroke="{LINE_SOFT}"/>')
+    # 右:一句话
+    for i, ln in enumerate(ex["quote"]):
+        body.append(text_el(W - 48, 60 + i * 27, 12.5, MUTED, esc(ln), ls="0.14em",
+                            ff=SERIF, anchor="end"))
+    body.append(f'<rect class="hp" x="{W-56}" y="{H-44}" width="7" height="7" '
+                f'transform="rotate(45 {W-52.5} {H-40.5})" fill="{LAMP}" opacity="0.7"/>')
     body.append(f'<rect class="grain" x="-200" y="-200" width="{W+400}" height="{H+400}" '
-                'fill="url(#grain)" opacity="0.4"/>')
-    body.append("</g>")
-    body.append(text_el(24, 26, 8.5, FAINT, "REEL — 最近的信号,一格一格从灯前经过", ls="0.24em"))
-    body.append(text_el(W - 24, 26, 8.5, FAINT, esc(live["feed_note"]), ls="0.2em", anchor="end"))
-    return (svg_open(W, H, "走马灯 — 最近动态胶片传送带", "".join(css), "".join(defs))
+                'fill="url(#grain)" opacity="0.35"/>')
+    css.append(GRAIN_CSS)
+    return (svg_open(W, H, f"展签:{ex['title']} — {ex['title_en']}", "".join(css), "".join(defs))
             + "\n".join(body) + "\n</svg>\n")
 
 
@@ -561,20 +582,22 @@ def gen_terminal(cfg: dict, live: dict) -> str:
             f'<rect x="26" y="22" width="{W-52}" height="{H-44}" rx="7" fill="#050d0c"/>',
             '<g class="crt" clip-path="url(#screen)">']
 
-    prompt_user, host = cfg["login"], "darkroom"
+    prompt_user, host = cfg["login"], "workshop"
     lang0 = live["languages"][0] if live["languages"] else {"name": "svelte", "bytes": 1}
     total = sum(x["bytes"] for x in live["languages"]) or 1
     lines = [
         [("p", f"{prompt_user}@{host}"), ("f", ":~ "), ("l", "$ "), ("t", "whoami")],
-        [("o", f"{cfg['alias_cjk']} — film · paint · code · synth")],
+        [("o", cfg["whoami_cjk"])],
         [("p", f"{prompt_user}@{host}"), ("f", ":~ "), ("l", "$ "), ("t", "uptime")],
-        [("o", f"{live['days_in_darkroom']} nights in the darkroom · "
+        [("o", f"{live['days_in_darkroom']} nights at the workbench · "
                f"load {lang0['name'].lower()} {lang0['bytes'] / total * 100:.0f}% · "
                f"{live['pushes_recent']} pushes recent")],
-        [("p", f"{prompt_user}@{host}"), ("f", ":~ "), ("l", "$ "), ("t", "tail -f /var/log/signal.log")],
+        [("p", f"{prompt_user}@{host}"), ("f", ":~ "), ("l", "$ "), ("t", "tail -f /var/log/craft.log")],
     ]
-    for ln in live["log_lines"][:4]:
-        lines.append([("d", f"[{ln['ts']}] "), ("o", ln["text"])])
+    for ln in cfg["craft_log"][:3]:
+        lines.append([("d", f"[{ln['tag']}] "), ("o", ln["text"])])
+    lines.append([("d", "[dev]   "),
+                  ("o", f"develop №{live['develop_no']:03d} · assets re-rendered · {live['develop_ts']}")])
 
     colmap = {"p": PHOS, "f": "rgba(126,232,207,0.45)", "l": LAMP,
               "t": "#d9efe8", "o": "rgba(126,232,207,0.85)", "d": "rgba(242,192,105,0.8)"}
@@ -728,25 +751,6 @@ def gen_header(num: int, cjk: str, en: str, light: bool) -> str:
             + "\n".join(body) + "\n</svg>\n")
 
 
-def gen_nav(label_cjk: str, label_en: str, idx: int, light: bool) -> str:
-    W, H = 158, 40
-    ink = L_MUTED if light else MUTED
-    line = L_LINE if light else LINE
-    accent = L_ACCENT if light else LAMP
-    fill = "rgba(43,42,37,0.03)" if light else "rgba(233,238,244,0.035)"
-    css = [f".u{{animation:ub 3.4s ease-in-out {fnum(idx * 0.55)}s infinite alternate}}"
-           "@keyframes ub{from{opacity:0.16}to{opacity:0.66}}"]
-    defs = [f'<linearGradient id="ug" x1="0" y1="0" x2="1" y2="0">'
-            f'<stop offset="0" stop-color="{accent}" stop-opacity="0"/>'
-            f'<stop offset="0.5" stop-color="{accent}"/>'
-            f'<stop offset="1" stop-color="{accent}" stop-opacity="0"/></linearGradient>']
-    body = [f'<rect x="1" y="1" width="{W-2}" height="{H-2}" rx="3" fill="{fill}" stroke="{line}"/>',
-            text_el(W / 2, 24, 10.5, ink, esc(f"{label_cjk} · {label_en}"), ls="0.18em", anchor="middle"),
-            f'<rect class="u" x="{W/2-26}" y="{H-7}" width="52" height="2" fill="url(#ug)"/>']
-    return (svg_open(W, H, f"{label_cjk} {label_en}", "".join(css), "".join(defs))
-            + "\n".join(body) + "\n</svg>\n")
-
-
 # ═══════════════════════ 主流程 ═══════════════════════
 
 def main() -> None:
@@ -756,20 +760,16 @@ def main() -> None:
 
     out: dict[str, str] = {
         "hero.svg": gen_hero(cfg, live),
+        "plaque.svg": gen_plaque(cfg, live),
         "strings.svg": gen_strings(live),
-        "reel.svg": gen_reel(live),
         "terminal.svg": gen_terminal(cfg, live),
         "tunnel.svg": gen_tunnel(live),
     }
-    for i, (num, cjk, en) in enumerate(
-            [(1, "以光为弦", "LANGUAGES AS STRINGS"),
-             (2, "走马灯", "THE REVOLVING REEL"),
-             (3, "还亮着的机器", "THE MACHINE STILL ON")], start=0):
+    for num, cjk, en in [(1, "展品", "EXHIBIT №001 — SIX-PIECE BURR"),
+                         (2, "以光为弦", "LANGUAGES AS STRINGS"),
+                         (3, "还亮着的机器", "THE MACHINE STILL ON")]:
         out[f"h{num}.svg"] = gen_header(num, cjk, en, light=False)
         out[f"h{num}-light.svg"] = gen_header(num, cjk, en, light=True)
-    for i, item in enumerate(cfg["nav"]):
-        out[f"nav-{item['id']}.svg"] = gen_nav(item["cjk"], item["en"], i, light=False)
-        out[f"nav-{item['id']}-light.svg"] = gen_nav(item["cjk"], item["en"], i, light=True)
 
     for name, content in out.items():
         (ASSETS / name).write_text(content, "utf-8")

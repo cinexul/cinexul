@@ -1,25 +1,26 @@
 {
   "login": "cinexul",
-  "alias_cjk": "哭泣de御姐控",
-  "tagline_cjk": "暗室里还亮着一台机器",
+  "tagline_cjk": "换了一把刻刀的手艺人",
+  "whoami_cjk": "工艺美术师 → 程序员 · 手上的活,换了种材料",
   "site": "https://cinexul.com",
-  "feed": "https://cinexul.com/feed.xml",
-  "est_fallback": "2026",
-  "nav": [
-    { "id": "site",   "cjk": "主站", "en": "SITE",   "href": "https://cinexul.com" },
-    { "id": "photo",  "cjk": "摄影", "en": "PHOTO",  "href": "https://cinexul.com/photography" },
-    { "id": "essays", "cjk": "随笔", "en": "ESSAYS", "href": "https://cinexul.com/essays" },
-    { "id": "news",   "cjk": "快讯", "en": "NEWS",   "href": "https://cinexul.com/news" },
-    { "id": "feed",   "cjk": "订阅", "en": "RSS",    "href": "https://cinexul.com/feed.xml" },
-    { "id": "how",    "cjk": "拆解", "en": "HOW",    "href": "docs/%E6%8A%80%E6%9C%AF%E6%89%8B%E5%86%8C.md" }
-  ],
-  "reel_fallback": [
-    { "title": "摄影 · 胶片图集",   "tag": "PHOTOGRAPHY", "date": "CINEXUL.COM" },
-    { "title": "随笔 · 縦書き卷轴", "tag": "ESSAYS",      "date": "CINEXUL.COM" },
-    { "title": "洞见 · 阅读模式",   "tag": "INSIGHTS",    "date": "CINEXUL.COM" },
-    { "title": "碎碎念 · 深夜电波", "tag": "MOMENTS",     "date": "CINEXUL.COM" },
-    { "title": "快讯 · 深夜电讯社", "tag": "NEWS",        "date": "CINEXUL.COM" },
-    { "title": "编程 · 控制台",     "tag": "CODE",        "date": "CINEXUL.COM" }
-  ],
-  "include_private_repos_in_text": false
+  "exhibit": {
+    "no": "001",
+    "title": "鲁班锁",
+    "title_en": "SIX-PIECE BURR · HAND-WRITTEN WEBGL",
+    "specs": [
+      ["材质",  "胡桃木(程序生成 · 种子 20260707)"],
+      ["工艺",  "六轴互锁 · 不用一颗钉 · 体素减法开槽"],
+      ["尺寸",  "2 × 2 × 6 单位 × 6 件 · 200 帧 · 10 秒完美循环"],
+      ["渲染",  "手写 WebGL · 无引擎 · 无头浏览器逐帧录制"]
+    ],
+    "quote": [
+      "榫对上卯的那一声轻响,",
+      "就是测试全绿的感觉。"
+    ]
+  },
+  "craft_log": [
+    { "tag": "craft", "text": "刨花落进键盘缝里 — 旧习惯了" },
+    { "tag": "craft", "text": "圆角磨了三遍 · 和当年打磨木口一个道理" },
+    { "tag": "green", "text": "榫对上卯的轻响 ≈ CI 全绿" }
+  ]
 }

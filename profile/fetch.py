@@ -4,9 +4,7 @@
 信号抓取 · cinexul/cinexul
 ==========================
 在 GitHub Actions 里运行,把公开数据冲洗进 profile/live.json:
-
-  · GitHub API:账号年龄 / 公开仓库 / star 合计 / 语言字节占比 / 近期 push
-  · cinexul.com/feed.xml:最新公开文章 → 走马灯 + 终端日志
+账号年龄 / 公开仓库 / star 合计 / 语言字节占比 / 近期 push。
 
 铁律:README 是公开页面,这里只允许出现"本来就公开"的信息。
 /users/{login}/repos 端点无论带不带 token 都只返回公开仓库,
@@ -21,7 +19,6 @@ import json
 import os
 import ssl
 import urllib.request
-import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -47,16 +44,6 @@ def get(url: str, accept: str = "application/vnd.github+json", timeout: int = 20
 
 def get_json(url: str):
     return json.loads(get(url))
-
-
-def trunc(s: str, limit: float) -> str:
-    w, out = 0.0, []
-    for ch in s:
-        w += 1 if ord(ch) > 0x2E80 else 0.55
-        if w > limit:
-            return "".join(out) + "…"
-        out.append(ch)
-    return s
 
 
 def main() -> None:
@@ -104,47 +91,9 @@ def main() -> None:
     except Exception as e:
         print(f"[warn] events: {e}")
 
-    # ── 博客 RSS/Atom → 走马灯 + 终端日志 ──
-    posts = []
-    try:
-        raw = get(CFG["feed"], accept="application/xml")
-        root = ET.fromstring(raw)
-        ns = {"a": "http://www.w3.org/2005/Atom"}
-        entries = root.findall("a:entry", ns) or root.findall(".//item")
-        for e in entries[:8]:
-            def field(*names):
-                for nm in names:
-                    el = e.find(f"a:{nm}", ns) if e.tag.endswith("entry") else e.find(nm)
-                    if el is not None and (el.text or el.get("href")):
-                        return (el.text or el.get("href")).strip()
-                return ""
-            title = field("title")
-            date = (field("updated", "published") or field("pubDate"))[:10]
-            link = field("link")
-            tag = "POST"
-            for seg in ("photography", "essays", "insights", "moments", "news", "code", "craft", "ai"):
-                if f"/{seg}" in link:
-                    tag = seg.upper()
-                    break
-            if title:
-                posts.append({"title": trunc(title, 15.5), "tag": tag, "date": date})
-    except Exception as e:
-        print(f"[warn] feed: {e}")
-
-    if posts:
-        live["reel"] = (posts + CFG["reel_fallback"])[:8]
-        live["feed_note"] = "SOURCE: CINEXUL.COM/FEED.XML"
-        live["log_lines"] = ([{"ts": live["develop_ts"][:16],
-                               "text": f"develop №{live['develop_no']:03d} — assets re-rendered"}]
-                             + [{"ts": p["date"], "text": f"cinexul.com · {p['title']}"}
-                                for p in posts[:3]])
-    else:
-        live.setdefault("reel", CFG["reel_fallback"])
-        live["feed_note"] = "SECTIONS OF CINEXUL.COM"
-
     LIVE.write_text(json.dumps(live, ensure_ascii=False, indent=2) + "\n", "utf-8")
     print(f"develop №{live['develop_no']} · langs={len(live.get('languages', []))} "
-          f"· posts={len(posts)} · days={live.get('days_in_darkroom')}")
+          f"· days={live.get('days_in_darkroom')}")
 
 
 if __name__ == "__main__":
